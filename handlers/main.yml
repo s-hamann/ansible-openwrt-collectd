@@ -1,0 +1,12 @@
+---
+- name: 'Restart collectd'
+  ansible.builtin.service:
+    name: collectd
+    state: "{{ ansible_facts['is_chroot'] | ansible.builtin.ternary(omit, 'restarted') }}"
+  listen: _collectd_restart
+
+- name: 'Restart luci_statistics'
+  ansible.builtin.service:
+    name: luci_statistics
+    state: "{{ ansible_facts['is_chroot'] | ansible.builtin.ternary(omit, 'restarted') }}"
+  listen: _luci_statistics_restart

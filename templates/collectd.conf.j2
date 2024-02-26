@@ -1,0 +1,69 @@
+#jinja2: lstrip_blocks: True, trim_blocks: True
+{{ ansible_managed | ansible.builtin.comment }}
+{% macro block(block_config) %}
+{% for key, value in block_config.items() %}
+{% if value is mapping %}
+{% set block_type, _, block_name = key.partition(' ') %}
+{% set block_name = block_name if not block_name.startswith('(') or not block_name.endswith(')') %}
+<{{ block_type ~ (' "' ~ block_name ~ '"' if block_name) }}>
+    {{ block(value) | indent(4) }}{##}
+</{{ block_type }}>
+{% elif value is string %}
+{% if key | lower == 'rratimespan' %}
+{{ key }} {{ value | community.general.to_seconds(month=31, year=366) | int }}
+{% else %}
+{{ key }} "{{ value }}"
+{% endif %}
+{% elif value is sequence %}
+{% for v in value %}
+{{ block({key: v}) }}{##}
+{% endfor %}
+{% elif value is boolean %}
+{{ key }} {{ value | ansible.builtin.ternary('true', 'false') }}
+{% elif value is none %}
+{# omit the setting #}
+{% else %}
+{{ key }} {{ value }}
+{% endif %}
+{% endfor %}
+{% endmacro %}
+
+{{ block(openwrt_collectd_config) }}{##}
+
+{% for plugin_name, plugin_config in openwrt_collectd_plugin_config.items() %}
+{% if plugin_config and 'LoadPlugin' in plugin_config %}
+<LoadPlugin {{ plugin_name }}>
+{% for key, value in plugin_config['LoadPlugin'].items() %}
+{% if value is string %}
+    {{ key }} "{{ value }}"
+{% else %}
+    {{ key }} {{ value }}
+{% endif %}
+{% endfor %}
+</LoadPlugin>
+{# Remove the LoadPlugin pseudo key from the configuration #}
+{% set plugin_config = plugin_config | ansible.utils.remove_keys(target=['LoadPlugin']) %}
+{% else %}
+LoadPlugin "{{ plugin_name }}"
+{% endif %}
+{% if plugin_config %}
+<Plugin "{{ plugin_name }}">
+    {{ block(plugin_config) | indent(4) }}{##}
+</Plugin>
+{% endif %}
+
+{% endfor %}
+{% for chain_name, chain_config in openwrt_collectd_precachechains.items() %}
+PreCacheChain "{{ chain_name }}"
+<Chain "{{ chain_name }}">
+    {{ block(chain_config) | indent(4) }}{##}
+</Chain>
+
+{% endfor %}
+{% for chain_name, chain_config in openwrt_collectd_postcachechains.items() %}
+PostCacheChain "{{ chain_name }}"
+<Chain "{{ chain_name }}">
+    {{ block(chain_config) | indent(4) }}{##}
+</Chain>
+
+{% endfor %}

@@ -1,0 +1,99 @@
+---
+- name: 'Add match plugins to configuration'
+  ansible.builtin.set_fact:
+    openwrt_collectd_plugin_config: "{% set _match_plugins = {} -%}
+    {% for chain in openwrt_collectd_precachechains.values() | list + openwrt_collectd_postcachechains.values() | list -%}
+      {% for rule_name, rule in chain.items() if rule_name.lower().startswith('rule') -%}
+        {% for match in rule.keys() if match.lower().startswith('match') -%}
+          {% set _ = _match_plugins.update({'match_' ~ match.split()[1]: {}}) -%}
+        {% endfor -%}
+      {% endfor -%}
+    {% endfor -%}
+    {{ _match_plugins | ansible.builtin.combine(openwrt_collectd_plugin_config) }}"
+
+- name: 'Merge plugin default settings'
+  ansible.builtin.set_fact:
+    openwrt_collectd_plugin_config: "{{ openwrt_collectd_plugin_config | ansible.builtin.combine({_plugin_name: openwrt_collectd_plugin_config_defaults[_plugin_name] | ansible.builtin.combine(openwrt_collectd_plugin_config[_plugin_name])}) }}"
+  loop: "{{ openwrt_collectd_plugin_config.keys() }}"
+  loop_control:
+    loop_var: _plugin_name
+  when: "_plugin_name in openwrt_collectd_plugin_config_defaults"
+
+- name: 'Install collectd'
+  community.general.opkg:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ ['collectd'] + [openwrt_collectd_plugin_config.keys() | map('replace', '_', '-') | map('regex_replace', '(\\S+)', 'collectd-mod-\\1')] | ansible.builtin.flatten }}"
+
+# Note: collectd uses /tmp/collectd.conf as its configuration file. The init
+# script either sets it up according to UCI configuration or symlinks it to the
+# `alt_config_file` path, which is set to /etc/collectd.conf by default.
+# However, the luci-app-statistics init script deletes /etc/collectd.conf,
+# replaces it with a symlink to /var/etc/collectd.conf and sets this file up
+# according to the UCI configuration for luci_statistics. It does not, however,
+# enforce that collectd actually uses /vat/etc/collectd.conf.
+# Furthermore, the UCI configurations for collectd and luci_statistics differ
+# slightly and neither supports collectd's full configuration syntax.
+# Hence, we mostly ignore UCI configuration of collectd/luci_statistics and
+# include raw collectd configuration from a stable, reliable location.
+
+- name: 'Configure collectd'
+  ansible.builtin.template:
+    dest: "{{ openwrt_collectd_config_file }}"
+    src: 'collectd.conf.j2'
+    owner: root
+    group: root
+    mode: '0600'
+  notify: _collectd_restart
+
+- name: 'Set stub UCI configuration for collectd'
+  ansible.builtin.copy:
+    dest: '/etc/config/collectd'
+    content: "config globals 'globals'\n\toption alt_config_file {{ openwrt_collectd_config_file }}\n"
+    owner: root
+    group: root
+    mode: 0600
+  notify: _collectd_restart
+
+- name: 'Keep collectd configuration on system upgrades'
+  ansible.builtin.lineinfile:
+    path: '/etc/sysupgrade.conf'
+    line: "{{ openwrt_collectd_config_file }}"
+    state: present
+
+- name: 'Keep collectd RRD database on system upgrades'
+  ansible.builtin.lineinfile:
+    path: '/etc/sysupgrade.conf'
+    line: "{{ openwrt_collectd_plugin_config['rrdtool']['DataDir'] }}"
+    state: present
+  when: "openwrt_collectd_plugin_config['rrdtool']['DataDir'] | default('/tmp/rrd/') is not ansible.builtin.match('/(tmp|var)/')"
+
+- name: 'Set up graphs in LuCI'
+  when: "openwrt_collectd_luci | bool"
+  block:
+
+    - name: 'Install luci-app-statistics'
+      community.general.opkg:
+        name: luci-app-statistics
+        state: present
+
+    - name: 'Configure luci_statistics'
+      ansible.builtin.template:
+        dest: '/etc/config/luci_statistics'
+        src: 'luci_statistics.j2'
+        owner: root
+        group: root
+        mode: '0644'
+      notify: _luci_statistics_restart
+
+    - name: 'Enable and start luci_statistics'
+      ansible.builtin.service:
+        name: luci_statistics
+        enabled: true
+        state: "{{ ansible_facts['is_chroot'] | ansible.builtin.ternary(omit, 'started') }}"
+
+- name: 'Enable and start collectd'
+  ansible.builtin.service:
+    name: collectd
+    enabled: true
+    state: "{{ ansible_facts['is_chroot'] | ansible.builtin.ternary(omit, 'started') }}"

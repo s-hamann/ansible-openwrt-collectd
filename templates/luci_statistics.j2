@@ -1,0 +1,22 @@
+#jinja2: lstrip_blocks: True
+{{ ansible_managed | ansible.builtin.comment }}
+# Note: Collectd does not actually use this configuration.
+{% macro uci_block(uci_options) %}
+  {% for key, value in uci_options.items() if value != omit %}
+    {% if value is sequence and value is not string %}
+	option {{ key }}s '{{ value | join(' ') }}'
+    {% else %}
+	option {{ key }} '{% if value is boolean %}{{ value | ansible.builtin.ternary('1', '0') }}{% else %}{{ value }}{% endif %}'
+    {% endif %}
+  {% endfor %}
+{% endmacro %}
+
+config statistics 'collectd_rrdtool'
+	option enable '1'
+    {{ uci_block(openwrt_collectd_plugin_config['rrdtool']) }}
+{% if 'cpu' in openwrt_collectd_plugin_config %}
+
+config statistics 'collectd_cpu'
+	option enable '1'
+    {{ uci_block(openwrt_collectd_plugin_config['cpu']) }}
+{% endif %}

@@ -1,0 +1,18 @@
+---
+galaxy_info:
+  author: 'Sebastian Hamann'
+  description: 'Collectd setup for OpenWrt'
+
+  license: MIT
+
+  min_ansible_version: '2.10'
+
+  platforms:
+    - name: GenericLinux
+
+  galaxy_tags:
+    - openwrt
+    - collectd
+    - monitoring
+
+dependencies: []

@@ -1,0 +1,8 @@
+---
+openwrt_collectd_config:
+  Interval: 30
+  ReadThreads: 2
+openwrt_collectd_plugin_config: {}
+openwrt_collectd_precachechains: {}
+openwrt_collectd_postcachechains: {}
+openwrt_collectd_luci: false
