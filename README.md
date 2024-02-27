@@ -41,6 +41,16 @@ Role Variables
   A dictionary of filter chains to be added to the `PreCacheChain` and `PostCacheChain`, respectively.
   Dictionary keys are custom chain names and dictionary values are the respective chain configuration, i.e. rules and targets.
   Refer to `openwrt_collectd_config` for how to map collectd configuration syntax to YAML.
+* `openwrt_collectd_rrd_backup_file`  
+  Path to a file where a backup of collectd's RRD database is stored.
+  When set, a system service is set up that restores the backup before starting collectd and creates a backup after stopping collectd.
+  This allows writing RRD files to a tmpfs location (to reduce flash writes) but nonetheless preserving the data on reboots.
+  Defaults to `/etc/collectd/rrdbackup.tgz` if the `rrdtool` plugin is enabled and the `DataDir` option is not set to a non-volatile path and otherwise to `false`.
+  Set to `false` or an empty string to disable RRD backups.
+* `openwrt_collectd_rrd_backup_time`  
+  This option allows to periodically backup the RRD database while collectd is running.
+  Set it to a time specification as understood by cron to control when to write a backup.
+  Unset by default.
 * `openwrt_collectd_luci`  
   Whether to install the LuCI integration for collectd.
   Defaults to `false`.
@@ -83,6 +93,7 @@ openwrt_collectd_precachechains:
         Plugin: '^chrony$'
         Type: '^clock_stratum$'
       Target: stop
+openwrt_collectd_rrd_backup_time: '0 */6 * * *'
 ```
 
 License

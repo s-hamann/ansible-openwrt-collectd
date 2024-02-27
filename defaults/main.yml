@@ -5,4 +5,5 @@ openwrt_collectd_config:
 openwrt_collectd_plugin_config: {}
 openwrt_collectd_precachechains: {}
 openwrt_collectd_postcachechains: {}
+openwrt_collectd_rrd_backup_file: "{{ (openwrt_collectd_plugin_config['rrdtool']['DataDir'] is ansible.builtin.match('/(tmp|var)/')) | ansible.builtin.ternary('/etc/collectd/rrdbackup.tgz', false) }}"
 openwrt_collectd_luci: false

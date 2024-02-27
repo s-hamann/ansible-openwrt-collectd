@@ -68,6 +68,50 @@
     state: present
   when: "openwrt_collectd_plugin_config['rrdtool']['DataDir'] | default('/tmp/rrd/') is not ansible.builtin.match('/(tmp|var)/')"
 
+- name: 'Keep collectd RRD database backup on system upgrades'
+  ansible.builtin.lineinfile:
+    path: '/etc/sysupgrade.conf'
+    line: "{{ openwrt_collectd_rrd_backup_file }}"
+    state: present
+  when: "openwrt_collectd_rrd_backup_file is ansible.builtin.truthy"
+
+- name: 'Keep RRD backup service on system upgrades'
+  ansible.builtin.lineinfile:
+    path: '/etc/sysupgrade.conf'
+    line: '/etc/init.d/rrdbackup'
+    state: present
+  when: "openwrt_collectd_rrd_backup_file is ansible.builtin.truthy"
+
+- name: 'Install RRD backup service'
+  ansible.builtin.template:
+    dest: '/etc/init.d/rrdbackup'
+    src: 'rrdbackup.j2'
+    owner: root
+    group: root
+    mode: '0755'
+  when: "openwrt_collectd_rrd_backup_file is ansible.builtin.truthy"
+
+- name: 'Enable and start RRD backup service'
+  ansible.builtin.service:
+    name: rrdbackup
+    enabled: true
+    state: "{{ ansible_facts['is_chroot'] | ansible.builtin.ternary(omit, 'started') }}"
+  when: "openwrt_collectd_rrd_backup_file is ansible.builtin.truthy"
+
+# Note: The cron module requires python, for lineinfile we can use an
+# implementation that does not.
+- name: 'Schedule regular RRD backups'
+  ansible.builtin.lineinfile:
+    path: '/etc/crontabs/root'
+    line: "{{ openwrt_collectd_rrd_backup_time | default() }} /etc/init.d/collectd status >/dev/null && /etc/init.d/rrdbackup backup"
+    regexp: '^\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+/etc/init\.d/collectd status >/dev/null && /etc/init\.d/rrdbackup backup$'
+    create: true
+    owner: root
+    group: root
+    mode: 0600
+    state: "{{ (openwrt_collectd_rrd_backup_time is defined) | ansible.builtin.ternary('present', 'absent') }}"
+  notify: _openwrt_restart_cron
+
 - name: 'Set up graphs in LuCI'
   when: "openwrt_collectd_luci | bool"
   block:

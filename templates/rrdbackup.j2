@@ -1,0 +1,35 @@
+#!/bin/sh /etc/rc.common
+
+BACKUP_FILE={{ openwrt_collectd_rrd_backup_file | quote }}
+DATA_DIR={{ openwrt_collectd_plugin_config['rrdtool']['DataDir'] | quote }}
+
+# run before collectd starts (80) and stop after collectd stops (10):
+START=79
+STOP=11
+EXTRA_COMMANDS="backup restore"
+
+backup() {
+    (
+    tmpfile="$(mktemp -u)"
+    backup_dir="$(dirname -- "${BACKUP_FILE}")"
+    trap "rm -f ${tmpfile}" EXIT TERM INT HUP
+    mkdir -p -- "${backup_dir}" || exit 1
+    cd -- "${backup_dir}" || exit 1
+    tar -czf "${tmpfile}" -C "${DATA_DIR}" . && mv -f "${tmpfile}" "${BACKUP_FILE}"
+    )
+}
+
+restore() {
+    if [ -f "${BACKUP_FILE}" ]; then
+        mkdir -p "${DATA_DIR}"
+        tar -xzf "${BACKUP_FILE}" -C "${DATA_DIR}"
+    fi
+}
+
+start() {
+    restore
+}
+
+stop() {
+    backup
+}

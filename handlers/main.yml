@@ -10,3 +10,10 @@
     name: luci_statistics
     state: "{{ ansible_facts['is_chroot'] | ansible.builtin.ternary(omit, 'restarted') }}"
   listen: _luci_statistics_restart
+
+- name: 'Restart cron'
+  ansible.builtin.service:
+    name: cron
+    state: restarted
+  when: "not ansible_facts['is_chroot']"
+  listen: _openwrt_restart_cron
