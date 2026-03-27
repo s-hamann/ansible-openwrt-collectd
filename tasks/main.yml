@@ -23,7 +23,7 @@
   community.general.opkg:
     name: "{{ item }}"
     state: present
-  loop: "{{ ['collectd'] + [openwrt_collectd_plugin_config.keys() | map('replace', '_', '-') | map('regex_replace', '(\\S+)', 'collectd-mod-\\1')] | ansible.builtin.flatten }}"
+  loop: "{{ ['collectd'] + [openwrt_collectd_plugin_config.keys() | map('replace', '_', '-') | map('ansible.builtin.regex_replace', '(\\S+)', 'collectd-mod-\\1')] | ansible.builtin.flatten }}"
 
 # Note: collectd uses /tmp/collectd.conf as its configuration file. The init
 # script either sets it up according to UCI configuration or symlinks it to the
