@@ -6,9 +6,8 @@ This role configures [collectd](https://www.collectd.org/) on [OpenWrt](https://
 Requirements
 ------------
 
-This role requires the `community.general` collection.
-
-Moreover, it requires a working [Python](https://www.python.org/) installation on the target system or [gekmihesg's Ansible library for OpenWrt](https://github.com/gekmihesg/ansible-openwrt) on the Ansible controller.
+This role requires the [community.general](https://github.com/ansible-collections/community.general) and the [community.openwrt](https://github.com/ansible-collections/community.openwrt) collection on the Ansible controller.
+As it exclusively uses modules from the latter collection, Python is *not* required on the target system.
 
 Role Variables
 --------------

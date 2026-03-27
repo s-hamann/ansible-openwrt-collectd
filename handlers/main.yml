@@ -1,18 +1,18 @@
 ---
 - name: 'Restart collectd'
-  ansible.builtin.service:
+  community.openwrt.service:
     name: collectd
     state: "{{ ansible_facts['is_chroot'] | ansible.builtin.ternary(omit, 'restarted') }}"
   listen: _collectd_restart
 
 - name: 'Restart luci_statistics'
-  ansible.builtin.service:
+  community.openwrt.service:
     name: luci_statistics
     state: "{{ ansible_facts['is_chroot'] | ansible.builtin.ternary(omit, 'restarted') }}"
   listen: _luci_statistics_restart
 
 - name: 'Restart cron'
-  ansible.builtin.service:
+  community.openwrt.service:
     name: cron
     state: restarted
   when: "not ansible_facts['is_chroot']"

@@ -20,7 +20,7 @@
   when: "_plugin_name in openwrt_collectd_plugin_config_defaults"
 
 - name: 'Install collectd'
-  community.general.opkg:
+  community.openwrt.apk:
     name: "{{ item }}"
     state: present
   loop: "{{ ['collectd'] + [openwrt_collectd_plugin_config.keys() | map('replace', '_', '-') | map('ansible.builtin.regex_replace', '(\\S+)', 'collectd-mod-\\1')] | ansible.builtin.flatten }}"
@@ -38,7 +38,7 @@
 # include raw collectd configuration from a stable, reliable location.
 
 - name: 'Configure collectd'
-  ansible.builtin.template:
+  community.openwrt.template:
     dest: "{{ openwrt_collectd_config_file }}"
     src: 'collectd.conf.j2'
     owner: root
@@ -47,7 +47,7 @@
   notify: _collectd_restart
 
 - name: 'Set stub UCI configuration for collectd'
-  ansible.builtin.copy:
+  community.openwrt.copy:
     dest: '/etc/config/collectd'
     content: "config globals 'globals'\n\toption alt_config_file {{ openwrt_collectd_config_file }}\n"
     owner: root
@@ -56,34 +56,34 @@
   notify: _collectd_restart
 
 - name: 'Keep collectd configuration on system upgrades'
-  ansible.builtin.lineinfile:
+  community.openwrt.lineinfile:
     path: '/etc/sysupgrade.conf'
     line: "{{ openwrt_collectd_config_file }}"
     state: present
 
 - name: 'Keep collectd RRD database on system upgrades'
-  ansible.builtin.lineinfile:
+  community.openwrt.lineinfile:
     path: '/etc/sysupgrade.conf'
     line: "{{ openwrt_collectd_plugin_config['rrdtool']['DataDir'] }}"
     state: present
   when: "openwrt_collectd_plugin_config['rrdtool']['DataDir'] | default('/tmp/rrd/') is not ansible.builtin.match('/(tmp|var)/')"
 
 - name: 'Keep collectd RRD database backup on system upgrades'
-  ansible.builtin.lineinfile:
+  community.openwrt.lineinfile:
     path: '/etc/sysupgrade.conf'
     line: "{{ openwrt_collectd_rrd_backup_file }}"
     state: present
   when: "openwrt_collectd_rrd_backup_file is ansible.builtin.truthy"
 
 - name: 'Keep RRD backup service on system upgrades'
-  ansible.builtin.lineinfile:
+  community.openwrt.lineinfile:
     path: '/etc/sysupgrade.conf'
     line: '/etc/init.d/rrdbackup'
     state: present
   when: "openwrt_collectd_rrd_backup_file is ansible.builtin.truthy"
 
 - name: 'Install RRD backup service'
-  ansible.builtin.template:
+  community.openwrt.template:
     dest: '/etc/init.d/rrdbackup'
     src: 'rrdbackup.j2'
     owner: root
@@ -92,7 +92,7 @@
   when: "openwrt_collectd_rrd_backup_file is ansible.builtin.truthy"
 
 - name: 'Enable and start RRD backup service'
-  ansible.builtin.service:
+  community.openwrt.service:
     name: rrdbackup
     enabled: true
     state: "{{ ansible_facts['is_chroot'] | ansible.builtin.ternary(omit, 'started') }}"
@@ -101,7 +101,7 @@
 # Note: The cron module requires python, for lineinfile we can use an
 # implementation that does not.
 - name: 'Schedule regular RRD backups'
-  ansible.builtin.lineinfile:
+  community.openwrt.lineinfile:
     path: '/etc/crontabs/root'
     line: "{{ openwrt_collectd_rrd_backup_time | default() }} /etc/init.d/collectd status >/dev/null && /etc/init.d/rrdbackup backup"
     regexp: '^\S+\s+\S+\s+\S+\s+\S+\s+\S+\s+/etc/init\.d/collectd status >/dev/null && /etc/init\.d/rrdbackup backup$'
@@ -117,12 +117,12 @@
   block:
 
     - name: 'Install luci-app-statistics'
-      community.general.opkg:
+      community.openwrt.apk:
         name: luci-app-statistics
         state: present
 
     - name: 'Configure luci_statistics'
-      ansible.builtin.template:
+      community.openwrt.template:
         dest: '/etc/config/luci_statistics'
         src: 'luci_statistics.j2'
         owner: root
@@ -131,13 +131,13 @@
       notify: _luci_statistics_restart
 
     - name: 'Enable and start luci_statistics'
-      ansible.builtin.service:
+      community.openwrt.service:
         name: luci_statistics
         enabled: true
         state: "{{ ansible_facts['is_chroot'] | ansible.builtin.ternary(omit, 'started') }}"
 
 - name: 'Enable and start collectd'
-  ansible.builtin.service:
+  community.openwrt.service:
     name: collectd
     enabled: true
     state: "{{ ansible_facts['is_chroot'] | ansible.builtin.ternary(omit, 'started') }}"
